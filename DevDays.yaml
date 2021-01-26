@@ -1,0 +1,536 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: new DevDays cft
+Parameters:
+  OrgName:
+    Type: String
+    Default: "displacement-industries"
+  jamSourceS3:
+    Type: String
+    Default: "prisma-jam-src"
+
+  VpcBlock:
+    Type: String
+    Default: 192.168.0.0/16
+    Description: The CIDR range for the VPC. This should be a valid private (RFC 1918) CIDR range.
+
+  PublicSubnet01Block:
+    Type: String
+    Default: 192.168.0.0/18
+    Description: CidrBlock for public subnet 01 within the VPC
+
+  PublicSubnet02Block:
+    Type: String
+    Default: 192.168.64.0/18
+    Description: CidrBlock for public subnet 02 within the VPC
+
+  PrivateSubnet01Block:
+    Type: String
+    Default: 192.168.128.0/18
+    Description: CidrBlock for private subnet 01 within the VPC
+
+  PrivateSubnet02Block:
+    Type: String
+    Default: 192.168.192.0/18
+    Description: CidrBlock for private subnet 02 within the VPC.
+
+
+  EksBlock:
+    Type: String
+    Default: 10.0.1.0/24
+    Description: CIDR blok for the EKS Cluster
+
+  JumpServerEBSVolumeSize:
+    Default: 20
+    Description: Appserver disk size
+    Type: String
+
+  JumpServerInstanceType:
+    Default: t2.micro
+    Type: String
+    Description: Instance Type
+
+  KeyName:
+    Type: String
+    Default: PANAWS
+    Description: AWS Key Pair to use for access
+
+  JumpSGlist:
+    Type: CommaDelimitedList
+    Default: sg-0c944d67a8de2817b
+    Description: Existing Inbound Secuirty Group
+
+Mappings:
+  RegionMap:
+    us-west-1:
+      JumpServer:  ami-0f165346951da18c9
+    eu-west-1:
+      JumpServer:  ami-0b9e262a1824338ec
+    ap-northeast-1:
+      JumpServer:  ami-09e9cac74da852a63
+    us-west-2:
+      JumpServer:  ami-0b5f687730c825c7d
+
+Resources:
+
+  SRCdiRepo:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName:  !Ref OrgName
+      RepositoryDescription:  This is where the source files for the build are
+      Code:
+        BranchName: main
+        S3:
+          Bucket: !Ref 'jamSourceS3'
+          Key: prisma-codebuild-scan/div1.zip
+  cbRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+                - ec2.amazonaws.com
+                - eks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+        - arn:aws:iam::aws:policy/AWSCodeCommitPowerUser
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+
+  lambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  DICodeBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name:  !Ref OrgName
+      Description: Displacement Industires Project
+      ServiceRole: !GetAtt cbRole.Arn
+      Artifacts:
+        Type: no_artifacts
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: PC_COMPUTE_USER
+            Type: PLAINTEXT
+            Value: af0cf28a-e071-4810-90e9-f92fd1d3394a
+          - Name: PC_COMPUTE_PASS
+            Type: PLAINTEXT
+            Value: VRNtTxfTbMpQEx0MNHGOLttRRhE=
+          - Name: PC_COMPUTE_CONSOLE_URL
+            Type: PLAINTEXT
+            Value: https://us-west1.cloud.twistlock.com/us-3-159212982
+          - Name: AWS_ACCOUNT_ID
+            Type: PLAINTEXT
+            Value: !Ref "AWS::AccountId"
+          - Name: IMAGE_TAG
+            Type: PLAINTEXT
+            Value: Latest
+          - Name: AWS_DEFAULT_REGION
+            Type: PLAINTEXT
+            Value: us-west-2
+          - Name: IMAGE_REPO_NAME
+            Type: PLAINTEXT
+            Value:  !Ref OrgName
+      Source:
+        Location: !GetAtt SRCdiRepo.CloneUrlHttp
+        Type: CODECOMMIT
+      TimeoutInMinutes: 10
+
+  DSTdiRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref OrgName
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Sid: AllowPushPull
+            Effect: Allow
+            Principal:
+              AWS:
+                - !GetAtt cbRole.Arn
+            Action:
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:BatchGetImage"
+              - "ecr:BatchCheckLayerAvailability"
+              - "ecr:PutImage"
+              - "ecr:InitiateLayerUpload"
+              - "ecr:UploadLayerPart"
+              - "ecr:CompleteLayerUpload"
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock:  !Ref VpcBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-VPC"
+
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+
+  VPCGatewayAttachment:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: Public Subnets
+        - Key: Network
+          Value: Public
+
+  PrivateRouteTable01:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: Private Subnet AZ1
+        - Key: Network
+          Value: Private01
+
+  PrivateRouteTable02:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: Private Subnet AZ2
+        - Key: Network
+          Value: Private02
+
+  PublicRoute:
+    DependsOn: VPCGatewayAttachment
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PrivateRoute01:
+    DependsOn:
+      - VPCGatewayAttachment
+      - NatGateway01
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable01
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway01
+
+  PrivateRoute02:
+    DependsOn:
+      - VPCGatewayAttachment
+      - NatGateway02
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable02
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway02
+
+  NatGateway01:
+    DependsOn:
+      - NatGatewayEIP1
+      - PublicSubnet01
+      - VPCGatewayAttachment
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt 'NatGatewayEIP1.AllocationId'
+      SubnetId: !Ref PublicSubnet01
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-NatGatewayAZ1'
+
+  NatGateway02:
+    DependsOn:
+      - NatGatewayEIP2
+      - PublicSubnet02
+      - VPCGatewayAttachment
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt 'NatGatewayEIP2.AllocationId'
+      SubnetId: !Ref PublicSubnet02
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-NatGatewayAZ2'
+
+  NatGatewayEIP1:
+    DependsOn:
+      - VPCGatewayAttachment
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+
+  NatGatewayEIP2:
+    DependsOn:
+      - VPCGatewayAttachment
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+
+
+
+  PublicSubnet01:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      Comment: Subnet 01
+    Properties:
+      MapPublicIpOnLaunch: true
+      AvailabilityZone:
+        Fn::Select:
+          - '0'
+          - Fn::GetAZs:
+              Ref: AWS::Region
+      CidrBlock:  !Ref PublicSubnet01Block
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-Subnet01"
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+  PublicSubnet02:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      Comment: Subnet 02
+    Properties:
+      MapPublicIpOnLaunch: true
+      AvailabilityZone:
+        Fn::Select:
+          - '1'
+          - Fn::GetAZs:
+              Ref: AWS::Region
+      CidrBlock:
+        Ref: PublicSubnet02Block
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PublicSubnet02"
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+  PrivateSubnet01:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      Comment: Subnet 03
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - '0'
+          - Fn::GetAZs:
+              Ref: AWS::Region
+      CidrBlock:
+        Ref: PrivateSubnet01Block
+      VpcId:
+        Ref: VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PrivateSubnet01"
+        - Key: kubernetes.io/role/internal-elb
+          Value: 1
+
+  PrivateSubnet02:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      Comment: Private Subnet 02
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - '1'
+          - Fn::GetAZs:
+              Ref: AWS::Region
+      CidrBlock:
+        Ref: PrivateSubnet02Block
+      VpcId:
+        Ref: VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PrivateSubnet02"
+        - Key: kubernetes.io/role/internal-elb
+          Value: 1
+
+  PublicSubnet01RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet01
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet02RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet02
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateSubnet01RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet01
+      RouteTableId: !Ref PrivateRouteTable01
+
+  PrivateSubnet02RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet02
+      RouteTableId: !Ref PrivateRouteTable02
+
+
+  ControlPlaneSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Cluster communication with worker nodes
+      VpcId: !Ref VPC
+
+  DevDaysEKS:
+    Type: AWS::EKS::Cluster
+    Properties:
+      KubernetesNetworkConfig:
+        ServiceIpv4Cidr: !Ref EksBlock
+      Name: !Sub "${AWS::StackName}-EKS"
+      ResourcesVpcConfig:
+        SecurityGroupIds:
+          - !GetAtt EKSSecurityGroup.GroupId
+        SubnetIds:
+          - !Ref PublicSubnet01
+          - !Ref PublicSubnet02
+          - !Ref PrivateSubnet01
+          - !Ref PrivateSubnet02
+      RoleArn: !GetAtt cbRole.Arn
+      Version: 1.16
+
+  EKSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for EKS
+      GroupName: !Sub "${AWS::StackName}-EKSSg"
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  EKSSGIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: EKSSecurityGroup
+    Properties:
+      GroupId: !Ref EKSSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref EKSSecurityGroup
+
+
+
+
+
+  ### Below hopefully not needed if I can get the nodegroup stuff working.
+
+  JSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+
+
+
+
+
+
+  # EC2 Instance to act as a jump host and also do some cool eks stuff that seem
+  # to fail if I try and do it in a CFT.
+  #
+
+  # Jump Server
+  JumpServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      SecurityGroupIds:
+        - !Ref  JSSecurityGroup
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", JumpServer]
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: !Ref JumpServerEBSVolumeSize
+      InstanceType: !Ref  JumpServerInstanceType
+      KeyName: !Ref KeyName
+      SubnetId: !Ref PublicSubnet01
+      PrivateIpAddress:  192.168.0.100
+      Tags:
+        - Key: Name
+          Value: JumpServer
+      UserData:
+        Fn::Base64:
+          !Sub |
+          #!/bin/bash -xe
+          set -o errexit; set -o nounset; set -o pipefail
+          # set the hostname
+          sudo hostname jumpserver
+          echo jumpserver > /etc/hostname
+          # Install Python and AWS cfn-bootstrap utilities
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get -y install python-pip
+          pip install requests
+          pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
+          /usr/local/bin/cfn-init -v --stack ${AWS::StackName} --resource JumpServer  --region ${AWS::Region}
+
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          default:
+            eksSetup
+        eksSetup:
+          commands:
+            'a_install_kubectl':
+              command: 'curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.16.15/2020-11-02/bin/linux/amd64/kubectl'
+
+            'b_set_permissions':
+              command: 'chmod +x ./kubectl'
+
+            'c_copy_binary':
+              command: 'mkdir -p $HOME/bin && cp ./kubectl $HOME/bin/kubectl && export PATH=$PATH:$HOME/bin'
+
+            'd_get_eksctl':
+              command: 'curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp'
+
+            'e_install_eksctl':
+              command: 'sudo mv /tmp/eksctl /usr/local/bin'
+
+
+
+
+
+
+
+
