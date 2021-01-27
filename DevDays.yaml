@@ -69,40 +69,40 @@ Parameters:
     Default: 3
     Description: Desired capacity of Node Group ASG.
 
-    NodeAutoScalingGroupMaxSize:
-      Type: Number
-      Default: 4
-      Description: Maximum size of Node Group ASG. Set to at least 1 greater than NodeAutoScalingGroupDesiredCapacity.
+  NodeAutoScalingGroupMaxSize:
+    Type: Number
+    Default: 4
+    Description: Maximum size of Node Group ASG. Set to at least 1 greater than NodeAutoScalingGroupDesiredCapacity.
 
-    NodeAutoScalingGroupMinSize:
-      Type: Number
-      Default: 1
-      Description: Minimum size of Node Group ASG.
+  NodeAutoScalingGroupMinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum size of Node Group ASG.
 
-    NodeGroupName:
-      Type: String
-      Description: Unique identifier for the Node Group.
+  NodeGroupName:
+    Type: String
+    Description: Unique identifier for the Node Group.
 
-    NodeImageId:
-      Type: String
-      Default: ""
-      Description: (Optional) Specify your own custom image ID. This value overrides any AWS Systems Manager Parameter Store value specified above.
+  NodeImageId:
+    Type: String
+    Default: ""
+    Description: (Optional) Specify your own custom image ID. This value overrides any AWS Systems Manager Parameter Store value specified above.
 
-    NodeImageIdSSMParam:
-      Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
-      Default: /aws/service/eks/optimized-ami/1.16/amazon-linux-2/recommended/image_id
-      Description: AWS Systems Manager Parameter Store parameter of the AMI ID for the worker node instances. Change this value to match the version of Kubernetes you are using.
+  NodeImageIdSSMParam:
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: /aws/service/eks/optimized-ami/1.16/amazon-linux-2/recommended/image_id
+    Description: AWS Systems Manager Parameter Store parameter of the AMI ID for the worker node instances. Change this value to match the version of Kubernetes you are using.
 
-    DisableIMDSv1:
-      Type: String
-      Default: "false"
-      AllowedValues:
-        - "false"
-        - "true"
+  DisableIMDSv1:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "false"
+      - "true"
 
-    NodeInstanceType:
-      Type: String
-      Default: t3.medium
+  NodeInstanceType:
+    Type: String
+    Default: t3.medium
 
 
 Mappings:
