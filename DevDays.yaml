@@ -503,12 +503,12 @@ Resources:
   CCPSecurityGroup:
     Type: AWS::EC2::SecurityGroup
       Properties:
-      GroupDescription: Security Group for EKS
-      GroupName: !Sub "${AWS::StackName}-EKSSg"
-      VpcId: !Ref VPC
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
+        GroupDescription: Security Group for EKS
+        GroupName: !Sub "${AWS::StackName}-EKSSg"
+        VpcId: !Ref VPC
+        SecurityGroupEgress:
+          - IpProtocol: -1
+            CidrIp: 0.0.0.0/0
 
   CCPIngress:
     Type: AWS::EC2::SecurityGroupIngress
