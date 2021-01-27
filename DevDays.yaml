@@ -105,6 +105,16 @@ Parameters:
     Type: String
     Default: t3.medium
 
+  NodeVolumeSize:
+    Type: Number
+    Default: 20
+    Description: Node volume size
+
+  BootstrapArguments:
+    Type: String
+    Default: ""
+    Description: "Arguments to pass to the bootstrap script. See files/bootstrap.sh in https://github.com/awslabs/amazon-eks-ami"
+
 
 Mappings:
   RegionMap:
