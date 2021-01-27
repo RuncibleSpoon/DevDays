@@ -570,7 +570,7 @@ Resources:
       Description: Allow the cluster control plane to communicate with pods running extension API servers on port 443
       DestinationSecurityGroupId: !Ref NodeSecurityGroup
       FromPort: 443
-      GroupId: !Ref CCPlaneSecurityGroup
+      GroupId: !Ref CCPSecurityGroup
       IpProtocol: tcp
       ToPort: 443
 
