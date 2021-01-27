@@ -178,7 +178,7 @@ Resources:
       Path: /
       Roles:
         - !Ref cbRole
-        -
+
 #### AWS Developer tools
 
 
