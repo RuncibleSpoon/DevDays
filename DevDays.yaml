@@ -515,9 +515,9 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     DependsOn: CCPSecurityGroup
     Properties:
-      GroupId: !GetAtt CCPSecurityGroup.Id
+      GroupId: CCPSecurityGroup.
       IpProtocol: -1
-      SourceSecurityGroupId: !GetAtt CCPSecurityGroup.Id
+      SourceSecurityGroupId: CCPSecurityGroup
 
 ### Added from example
 
