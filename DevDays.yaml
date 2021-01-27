@@ -523,7 +523,7 @@ Resources:
 
   CCPIngress:
     Type: AWS::EC2::SecurityGroupIngress
-    DependsOn: !Ref CCPSecurityGroup
+    DependsOn: CCPSecurityGroup
     Properties:
       GroupId: !Ref CCPSecurityGroup
       IpProtocol: -1
