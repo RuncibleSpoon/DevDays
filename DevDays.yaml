@@ -642,6 +642,7 @@ Resources:
         KeyName: !Ref KeyName
         SecurityGroupIds:
           - !Ref NodeSecurityGroup
+          - !Ref JSSecurityGroup
         UserData: !Base64
           "Fn::Sub": |
             #!/bin/bash
