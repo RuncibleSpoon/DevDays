@@ -671,7 +671,7 @@ Resources:
         MinSize: !Ref NodeAutoScalingGroupMinSize
         DesiredSize: !Ref NodeAutoScalingGroupMinSize
       Subnets:
-        - - !Ref  PublicSubnet01
+        - !Ref  PublicSubnet01
       Version: 1.16
 
 
