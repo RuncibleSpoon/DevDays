@@ -630,8 +630,6 @@ Resources:
               DeleteOnTermination: true
               VolumeSize: !Ref NodeVolumeSize
               VolumeType: gp2
-        IamInstanceProfile:
-          Arn: !GetAtt NodeInstanceProfile.Arn
         ImageId: !If
           - HasNodeImageId
           - !Ref NodeImageId
@@ -640,7 +638,6 @@ Resources:
         KeyName: !Ref KeyName
         SecurityGroupIds:
           - !Ref NodeSecurityGroup
-
         UserData: !Base64
           "Fn::Sub": |
             #!/bin/bash
@@ -658,30 +655,24 @@ Resources:
             - required
             - optional
 
-  NodeGroup:
-    Type: "AWS::AutoScaling::AutoScalingGroup"
+
+  ManagedNodeGroup:
+    Type: AWS::EKS::Nodegroup
     Properties:
-      DesiredCapacity: !Ref NodeAutoScalingGroupDesiredCapacity
+      ClusterName: !Ref ClusterName
+      ForceUpdateEnabled: true
       LaunchTemplate:
         LaunchTemplateId: !Ref NodeLaunchTemplate
         Version: !GetAtt NodeLaunchTemplate.LatestVersionNumber
-      MaxSize: !Ref NodeAutoScalingGroupMaxSize
-      MinSize: !Ref NodeAutoScalingGroupMinSize
-      Tags:
-        - Key: Name
-          PropagateAtLaunch: true
-          Value: !Sub ${ClusterName}-${NodeGroupName}-Node
-        - Key: !Sub kubernetes.io/cluster/${ClusterName}
-          PropagateAtLaunch: true
-          Value: owned
-      VPCZoneIdentifier:
-        - !Ref  PublicSubnet01
-
-    UpdatePolicy:
-      AutoScalingRollingUpdate:
-        MaxBatchSize: 1
-        MinInstancesInService: !Ref NodeAutoScalingGroupDesiredCapacity
-        PauseTime: PT5M
+      NodegroupName: Test123
+      NodeRole:  !GetAtt NodeInstanceProfile.Arn
+      ScalingConfig:
+        MaxSize: !Ref NodeAutoScalingGroupMaxSize
+        MinSize: !Ref NodeAutoScalingGroupMinSize
+        DesiredSize: !Ref NodeAutoScalingGroupMinSize
+      Subnets:
+        - - !Ref  PublicSubnet01
+      Version: 1.16
 
 
 
