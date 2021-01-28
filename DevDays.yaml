@@ -700,8 +700,7 @@ Resources:
       SecurityGroupIds:
         - !Ref  JSSecurityGroup
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", JumpServer]
-      IamInstanceProfile:
-        Arn: !GetAtt NodeInstanceProfile.Arn
+      IamInstanceProfile: !Ref NodeInstanceProfile
       BlockDeviceMappings:
         - DeviceName: "/dev/sda1"
           Ebs:
