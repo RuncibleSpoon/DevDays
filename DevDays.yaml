@@ -740,6 +740,10 @@ Resources:
             'e_install_eksctl':
               command: 'sudo mv /tmp/eksctl /usr/local/bin'
 
+            'f_update_creds':
+              command: !Sub
+                ' aws eks --region ${AWS::Region} update-kubeconfig --name  ${ClusterName} '
+
 
 
 
