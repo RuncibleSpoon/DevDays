@@ -504,9 +504,7 @@ Resources:
           - !Ref CCPSecurityGroup
         SubnetIds:
           - !Ref PublicSubnet01
-          - !Ref PublicSubnet02
-          - !Ref PrivateSubnet01
-          - !Ref PrivateSubnet02
+
       RoleArn: !GetAtt cbRole.Arn
       Version: 1.16
 
@@ -642,7 +640,7 @@ Resources:
         KeyName: !Ref KeyName
         SecurityGroupIds:
           - !Ref NodeSecurityGroup
-        #  - !Ref JSSecurityGroup
+
         UserData: !Base64
           "Fn::Sub": |
             #!/bin/bash
@@ -678,9 +676,7 @@ Resources:
           Value: owned
       VPCZoneIdentifier:
         - !Ref  PublicSubnet01
-        - !Ref  PublicSubnet02
-        - !Ref  PrivateSubnet01
-        - !Ref  PrivateSubnet02
+
     UpdatePolicy:
       AutoScalingRollingUpdate:
         MaxBatchSize: 1
@@ -701,9 +697,12 @@ Resources:
   JumpServer:
     Type: AWS::EC2::Instance
     Properties:
+      VpcId: !Ref VPC
       SecurityGroupIds:
         - !Ref  JSSecurityGroup
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", JumpServer]
+      IamInstanceProfile:
+        Arn: !GetAtt NodeInstanceProfile.Arn
       BlockDeviceMappings:
         - DeviceName: "/dev/sda1"
           Ebs:
