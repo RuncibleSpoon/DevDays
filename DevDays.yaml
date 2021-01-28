@@ -657,6 +657,7 @@ Resources:
 
 
   ManagedNodeGroup:
+    DependsOn: DevDaysEKS
     Type: AWS::EKS::Nodegroup
     Properties:
       ClusterName: !Ref ClusterName
