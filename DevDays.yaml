@@ -697,7 +697,6 @@ Resources:
   JumpServer:
     Type: AWS::EC2::Instance
     Properties:
-      VpcId: !Ref VPC
       SecurityGroupIds:
         - !Ref  JSSecurityGroup
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", JumpServer]
