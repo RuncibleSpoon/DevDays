@@ -666,7 +666,7 @@ Resources:
         Id: !Ref NodeLaunchTemplate
         Version: !GetAtt NodeLaunchTemplate.LatestVersionNumber
       NodegroupName: Test123
-      NodeRole:  !Ref NodeInstanceRole
+      NodeRole:  !Ref cbRole
       ScalingConfig:
         MaxSize: !Ref NodeAutoScalingGroupMaxSize
         MinSize: !Ref NodeAutoScalingGroupMinSize
