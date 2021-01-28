@@ -662,7 +662,7 @@ Resources:
       ClusterName: !Ref ClusterName
       ForceUpdateEnabled: true
       LaunchTemplate:
-        LaunchTemplateId: !Ref NodeLaunchTemplate
+        Id: !Ref NodeLaunchTemplate
         Version: !GetAtt NodeLaunchTemplate.LatestVersionNumber
       NodegroupName: Test123
       NodeRole:  !GetAtt NodeInstanceProfile.Arn
