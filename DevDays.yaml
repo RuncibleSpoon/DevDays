@@ -504,7 +504,7 @@ Resources:
           - !Ref CCPSecurityGroup
         SubnetIds:
           - !Ref PublicSubnet01
-
+          - !Ref PublicSubnet02
       RoleArn: !GetAtt cbRole.Arn
       Version: 1.16
 
